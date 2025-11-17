@@ -1,28 +1,74 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import Navbar from './components/Navbar'
+import Sidebar from './components/Sidebar'
+import Editor from './components/Editor'
+import History from './components/History'
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [notes, setNotes] = useState('')
+  const [loading, setLoading] = useState(false)
+  const outputRef = useRef(null)
+
+  useEffect(() => {
+    outputRef.current = document.getElementById('rewrite-output')
+  }, [])
+
+  const outline = [
+    'Introduction & thesis',
+    'Key arguments',
+    'Counterarguments',
+    'Evidence & examples',
+    'Conclusion',
+  ]
+
+  const checklist = [
+    'Clear thesis in the introduction',
+    'Each paragraph has a topic sentence',
+    'Evidence cited and explained',
+    'Logical transitions between ideas',
+    'Conclusion reinforces the thesis without repeating',
+  ]
+
+  const handleNew = () => {
+    setNotes('')
+    if (outputRef.current) outputRef.current.textContent = ''
+  }
+
+  const handleSettings = () => {
+    alert('Settings coming soon')
+  }
+
+  const requestRewrite = async (text, mode) => {
+    setLoading(true)
+    try {
+      const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+      const res = await fetch(base + '/api/rewrite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, mode }),
+      })
+      if (!res.ok) throw new Error('Rewrite failed')
+      const data = await res.json()
+      if (outputRef.current) outputRef.current.textContent = data.rewritten
+    } catch (e) {
+      if (outputRef.current) outputRef.current.textContent = 'Error: ' + e.message
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-lg shadow-lg">
-        <h1 className="text-3xl font-bold text-gray-800 mb-4">
-          Vibe Coding Platform
-        </h1>
-        <p className="text-gray-600 mb-6">
-          Your AI-powered development environment
-        </p>
-        <div className="text-center">
-          <button
-            onClick={() => setCount(count + 1)}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded"
-          >
-            Count is {count}
-          </button>
+    <div className="min-h-screen bg-gradient-to-br from-sky-50 via-indigo-50 to-violet-50">
+      <Navbar onNew={handleNew} onOpenSettings={handleSettings} />
+
+      <main className="max-w-6xl mx-auto grid grid-cols-[20rem_1fr] gap-6 p-4">
+        <Sidebar outline={outline} notes={notes} setNotes={setNotes} checklist={checklist} />
+
+        <div className="space-y-4">
+          <Editor onRewrite={requestRewrite} loading={loading} />
+          <History />
         </div>
-      </div>
+      </main>
     </div>
   )
 }
-
-export default App
